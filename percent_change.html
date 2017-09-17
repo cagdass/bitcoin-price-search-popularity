@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+.axis {
+  font: 10px sans-serif;
+}
+
+.axis-title {
+  text-anchor: end;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.axis--x path {
+  display: none;
+}
+
+.axis--y .tick:not(.tick--one) line {
+  stroke-opacity: .15;
+}
+
+.line {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 1px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.red-line {
+  fill: none;
+  stroke: red;
+  stroke-width: 1px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+</style>
+<body>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script>
+
+var margin = {top: 30, right: 30, bottom: 40, left: 50},
+    width = 960 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+
+var formatPercent = d3.format("+.0%"),
+    formatChange = function(x) { return formatPercent(x - 1); },
+    parseDate = d3.time.format("%d-%b-%y").parse;
+
+var x = d3.time.scale()
+    .range([0, width]);
+
+var y = d3.scale.log()
+    .range([height, 0]);
+
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left")
+    .tickSize(-width, 0)
+    .tickFormat(formatChange);
+
+var line = d3.svg.line()
+    .x(function(d) { return x(d.date); })
+    .y(function(d) { return y(d.price_ratio); });
+
+var line2 = d3.svg.line()
+    .x(function(d) { return x(d.date); })
+    .y(function(d) { return y(d.search_ratio); });
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+var gX = svg.append("g")
+    .attr("class", "axis axis--x")
+    .attr("transform", "translate(0," + height + ")");
+
+var gY = svg.append("g")
+    .attr("class", "axis axis--y");
+
+gY.append("text")
+    .attr("class", "axis-title")
+    .attr("transform", "rotate(-90)")
+    .attr("y", 6)
+    .attr("dy", ".71em")
+    .text("Change in Price");
+
+d3.csv("price_and_search_data.csv", function(error, data) {
+  if (error) throw error;
+
+  // Compute price relative to base value (hypothetical purchase price).
+  var basePriceValue = +data[0].price;
+  var baseSearchValue = +data[0].search;
+
+  data.forEach(function(d) {
+    d.date = parseDate(d.date);
+    d.price_ratio = d.price  / basePriceValue;
+    d.search_ratio = d.search  / baseSearchValue;
+    basePriceValue = d.price;
+    baseSearchValue = d.search;
+  });
+
+  x.domain(d3.extent(data, function(d) { return d.date; }));
+  y.domain(d3.extent(data, function(d) { return d.price_ratio; }));
+
+  // Use a second linear scale for ticks.
+  yAxis.tickValues(d3.scale.linear()
+      .domain(y.domain())
+      .ticks(20));
+
+  gX.call(xAxis);
+
+  gY.call(yAxis)
+    .selectAll(".tick")
+      .classed("tick--one", function(d) { return Math.abs(d - 1) < 1e-6; });
+
+  svg.append("path")
+      .datum(data)
+      .attr("class", "line")
+      .attr("d", line);
+
+  svg.append("path")
+      .datum(data)
+      .attr("class", "red-line")
+      .attr("d", line2);
+
+  padding = -120
+
+  svg.append("text")
+    .attr("text-anchor", "middle")
+    .attr("font-size", "14px")
+    .attr("fill", "steelblue")
+    .attr("transform", "translate("+ (width/2) +","+(height-(padding/3))+")")
+    .text("Bitcoin price in USD");
+
+
+  svg.append("text")
+    .attr("text-anchor", "middle")
+    .attr("font-size", "14px")
+    .attr("fill", "red")
+    .attr("transform", "translate("+ (width/2 + 120) +","+(height-(padding/3))+")")
+    .text("Google search");
+});
+
+</script>
